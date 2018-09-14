@@ -1,4 +1,7 @@
 # Hawk-I
+<<<<<<< HEAD
+Automatic extract anomalious Web attack Payloads with Unsupervised Machine Learning algorithms
+=======
 Automatic extract anomalious Web attack Payloads with Unsupervised Machine Learning algorithms.
 
 ### 思路
