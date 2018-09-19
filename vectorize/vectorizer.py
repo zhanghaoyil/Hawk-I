@@ -15,39 +15,36 @@ class Vectorizer:
         self.strs = ['Path']
         self.paths = []
 
-    def get_paths(self, white_samples):
+    def get_paths(self, samples):
+        '''
+        Discover all possible valid paths
+        '''
         paths = []
-        for sample in white_samples:
+        for sample in samples:
             path = sample['Path']
             paths.append(path)
         self.paths = list(set(paths))
 
-    def value_lengths(self, sample):
-        lengths = []
-        for k in ['Path', 'NormParams']:
-            if k in sample.keys():
-                lengths.append(len(sample[k]))
-            else:
-                lengths.append(0)
-        return lengths
-
-    def init_param(self, white_samples):
+    def init_param(self, samples):
+        '''
+        Discover param keys in each path.
+        '''
         path_param = {}
         all_param = []
 
         for special in self.kvs:
-            for s in white_samples:
-                if special not in s.keys() or not s[special]:
+            for sample in samples:
+                if special not in sample.keys() or not sample[special]:
                     continue
-                params = s[special]
+                params = sample[special]
                 for k in params.keys():
-                    s_path = s['Path']
+                    path = sample['Path']
                     #path param
-                    if s_path in path_param.keys():
-                        if k not in path_param[s_path]:
-                            path_param[s_path].append(k)
+                    if path in path_param.keys():
+                        if k not in path_param[path]:
+                            path_param[path].append(k)
                     else:
-                        path_param[s_path] = [k]
+                        path_param[path] = [k]
 
                     #all param
                     all_param.append(k)
@@ -56,8 +53,6 @@ class Vectorizer:
 
 
 if __name__ == '__main__':
-    #vector_type = 'statistics'
-    vector_type = 'tf-idf'
     pd = ParseData('n1')
     white_samples = pd.samples
     pd = ParseData('a')
@@ -94,55 +89,41 @@ if __name__ == '__main__':
         path_ys[path].append(target)
         path_sample_indices[path].append(sample_index)
 
-        if vector_type == 'statistics':
-            v = []
-            #Method index
-            v.append(0 if sample['Method'] == 'GET' else 1 if sample['Method'] == 'POST' else -1)
-
-            #key lengths
-            v.extend(gv.value_lengths(sample))
-
-            #vectorize count of never seen param key
-            never_seen_key_count = 0
-            for special in gv.kvs:
-                if special in sample.keys() and sample[special]:
-                    for subk, subv in sample[special].items():
-                        if path not in path_param.keys():
-                            if subk in all_param:
-                                never_seen_key_count += 2
-                            else:
-                                never_seen_key_count += 5
-            v.append(never_seen_key_count)
-            path_buckets[path].append(v)
-
-        elif vector_type == 'tf-idf':
-            sample_param_str = ''
-            for special in gv.kvs:
-                if special in sample.keys() and sample[special]:
-                    for subk, subv in sample[special].items():
-                        sample_param_str += f'{subk}={subv} '
-            path_buckets[path].append(sample_param_str)
+        sample_param_str = ''
+        for special in gv.kvs:
+            if special in sample.keys() and sample[special]:
+                for subk, subv in sample[special].items():
+                    sample_param_str += f'{subk}={subv} '
+        path_buckets[path].append(sample_param_str)
 
     for path in path_buckets.keys():
-        if vector_type == 'statistics':
-            os.mkdir(f"path-{time.strftime('%Y-%m-%d')}")
-            np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_x.npy", np.array(path_buckets[path]))
-            np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_y.npy", np.array(path_ys[path]))
-        elif vector_type == 'tf-idf':
-            for path, strs in path_buckets.items():
-                if not strs:
-                    continue
-                vectorizer = TfidfVectorizer(analyzer='word', token_pattern=r"(?u)\b\S\S+\b")
-                try:
-                    tfidf = vectorizer.fit_transform(strs)
-                    print(path, len(vectorizer.vocabulary_))
-
-                    if not os.path.exists(f"path-{time.strftime('%Y-%m-%d')}"):
-                        os.mkdir(f"path-{time.strftime('%Y-%m-%d')}")
-                    #save tfidf vectorizer for anomalious param extraction
-                    joblib.dump(tfidf, f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_tfidf.m")
-                    np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_x.npy", tfidf.toarray())
-                    np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_y.npy", np.array(path_ys[path]))
-                    np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_index.npy", np.array(path_sample_indices[path]))
-                except ValueError as ve:
-                    print(path, ve)
+        for path, strs in path_buckets.items():
+            if not strs:
+                continue
+            vectorizer = TfidfVectorizer(analyzer='word', token_pattern=r"(?u)\b\S\S+\b")
+            try:
+                tfidf = vectorizer.fit_transform(strs)
+                #putting same key's indices together
+                param_index = {}
+                for kv, index in vectorizer.vocabulary_.items():
+                    k = kv.split('=')[0]
+                    if k in param_index.keys():
+                        param_index[k].append(index)
+                    else:
+                        param_index[k] = [index]
+                #shrinking tfidf vectors
+                vectors = []
+                for vector in tfidf.toarray():
+                    v = []
+                    for param, index in param_index.items():
+                        v.append(np.sum(vector[index]))
+                    vectors.append(v)
+                if not os.path.exists(f"path-{time.strftime('%Y-%m-%d')}"):
+                    os.mkdir(f"path-{time.strftime('%Y-%m-%d')}")
+                #save param index for anomalious param extraction
+                np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_params.npy", np.array(list(param_index.keys())))
+                np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_x.npy", np.array(vectors))
+                np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_y.npy", np.array(path_ys[path]))
+                np.save(f"path-{time.strftime('%Y-%m-%d')}/{path.replace('/', '~')}_index.npy", np.array(path_sample_indices[path]))
+            except ValueError as ve:
+                print(path, ve)

@@ -11,7 +11,7 @@ from sklearn.neighbors.classification import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import learning_curve
 from sklearn.model_selection import ShuffleSplit
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import time
 
 def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
@@ -45,22 +45,20 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
 
 if __name__ == '__main__':
     start = time.time()
-    vectors = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~miembros~editar.jsp_x.npy")
-    targets = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~miembros~editar.jsp_y.npy")
+    vectors = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~publico~registro.jsp_x.npy")
+    targets = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~publico~registro.jsp_y.npy")
     print(vectors)
     print(vectors.shape, targets.shape)
 
     cv = ShuffleSplit(n_splits=10, test_size=0.2, random_state=1)
     lr = LogisticRegression(penalty='l2')
-    plot_learning_curve(lr, 'Hawk-I LR', MinMaxScaler().fit_transform(vectors), targets, cv=cv, n_jobs=4, train_sizes=np.linspace(0.1, 1, 10))
+    plot_learning_curve(lr, 'Hawk-I LR', StandardScaler().fit_transform(vectors), targets, cv=cv, n_jobs=-1, train_sizes=np.linspace(0.1, 1, 5))
     rf = RandomForestClassifier(n_estimators=20, max_features=None)
-    plot_learning_curve(rf, f'Hawk-I RF with 20 trees', MinMaxScaler().fit_transform(vectors), targets, cv=cv, n_jobs=-1, train_sizes=np.linspace(0.1, 1, 5))
-
+    plot_learning_curve(rf, f'Hawk-I RF with 20 trees', StandardScaler().fit_transform(vectors), targets, cv=cv, n_jobs=-1, train_sizes=np.linspace(0.1, 1, 5))
     svc = SVC()
-    plot_learning_curve(svc, 'Hawk-I SVM', MinMaxScaler().fit_transform(vectors), targets, cv=cv, n_jobs=4, train_sizes=np.linspace(0.1, 1, 10))
-
+    plot_learning_curve(svc, 'Hawk-I SVM', StandardScaler().fit_transform(vectors), targets, cv=cv, n_jobs=-1, train_sizes=np.linspace(0.1, 1, 5))
     knn = KNeighborsClassifier(n_neighbors=10)
-    plot_learning_curve(knn, 'Hawk-I KNN', MinMaxScaler().fit_transform(vectors), targets, cv=cv, n_jobs=-1, train_sizes=np.linspace(0.1, 1, 5))
+    plot_learning_curve(knn, 'Hawk-I KNN', StandardScaler().fit_transform(vectors), targets, cv=cv, n_jobs=-1, train_sizes=np.linspace(0.1, 1, 5))
 
 
     end = time.time()
