@@ -44,9 +44,8 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
     return plt
 
 if __name__ == '__main__':
-    start = time.time()
-    vectors = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~publico~registro.jsp_x.npy")
-    targets = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~publico~registro.jsp_y.npy")
+    vectors = np.load(f"../vectorize/paths/~tienda1~miembros~editar.jsp_x.npy")
+    targets = np.load(f"../vectorize/paths/~tienda1~miembros~editar.jsp_y.npy")
     print(vectors)
     print(vectors.shape, targets.shape)
 
@@ -60,7 +59,4 @@ if __name__ == '__main__':
     knn = KNeighborsClassifier(n_neighbors=10)
     plot_learning_curve(knn, 'Hawk-I KNN', StandardScaler().fit_transform(vectors), targets, cv=cv, n_jobs=-1, train_sizes=np.linspace(0.1, 1, 5))
 
-
-    end = time.time()
-    print(f'Elapsed: {end-start}')
     plt.show()

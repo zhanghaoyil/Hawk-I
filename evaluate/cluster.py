@@ -8,6 +8,7 @@ from sklearn.cluster import KMeans, DBSCAN
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV
 import numpy as np
+from utils.visualize import Visualizer
 
 def cluster_scoring(estimator, X, y):
     y_pred = estimator.fit_predict(X)
@@ -22,37 +23,27 @@ def cluster_scoring(estimator, X, y):
     score = float(right / picked)
     return score
 
-def analyse_cluster(estimator, X, y):
-    y_pred = estimator.fit_predict(X)
-    counts = np.bincount(y_pred)
-    n_clusters_ = len(set(y_pred))
-    for i in range(1, n_clusters_):
-        min_i = np.argsort(counts)[:i]
-        picked = 0
-        right = 0
-        for c in min_i:
-            picked += counts[c]
-            right += np.sum(y[y_pred==c] == 1)
-        print(f'{n_clusters_}-kmeans min {i}: {float(right / picked)}')
-
 if __name__ == '__main__':
-    vectors = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~publico~registro.jsp_x.npy")
+    vectors = np.load(f"../vectorize/paths/~tienda1~miembros~editar.jsp_x.npy")
     x = StandardScaler().fit_transform(vectors)
-    y = np.load(f"../vectorize/path-{time.strftime('%Y-%m-%d')}/~tienda1~publico~registro.jsp_y.npy")
+    y = np.load(f"../vectorize/paths/~tienda1~miembros~editar.jsp_y.npy")
 
-    for eps in np.linspace(0.1, 2, 10):
-        clf = DBSCAN(eps=eps, min_samples=1)
+    vis = Visualizer()
+    for eps in np.linspace(0.4, 3.2, 8):
+        clf = DBSCAN(eps=eps, min_samples=3)
         y_pred = clf.fit_predict(x)
-        y_pred += (1 if -1 in y_pred else 0)
+        y_pred += (1 if -1 in y_pred else 1)
         counts = np.bincount(y_pred)
         n_clusters_ = len(set(y_pred))
-        min_half = np.argsort(counts)[:n_clusters_]
+        sorted_count_index = np.argsort(counts)
         all = len(y)
-        picked = 0
-        right = 0
-        for c in min_half:
-            picked += counts[c]
-            right += np.sum(y[y_pred == c] == 1)
+        axis_x = []
+        axis_y = []
+        for c in sorted_count_index:
+            picked = counts[c]
+            right = np.sum(y[y_pred == c] == 1)
             acc = right / picked
             ratio = picked / all
-            print(f'DBSCAN eps {eps}: {acc}, {ratio}')
+            axis_x.append(ratio)
+            axis_y.append(acc)
+        vis.line(X=axis_x, Y=axis_y, win=eps, opts={'title': f'EPS {round(eps, 2)} {n_clusters_} clusters', 'xlabel': 'cluster percentile', 'ylabel': 'anonymous sample percentile', 'markers': True, 'markersize': 5})
